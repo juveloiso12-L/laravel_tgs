@@ -1,0 +1,818 @@
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT
+HALAMAN TRANSAKSI PEMBAYARAN KASIR
+Program Studi :
+1. Teknik Informatika
+2. Teknologi Rekayasa Perangkat Lunak
+Topik Praktikum : Membedah fitur-fitur yang ada pada halaman
+kasir
+Berikut HTML + CSS + JavaScript standalone yang bisa langsung dicoba di browser. Desainnya juga cukup
+mudah nantinya diubah menjadi Blade Laravel 13 + Bootstrap.
+Gambaran layout
+Struktur halaman tersebut kira-kira:
+┌─────────────────────────────────────────────────────────────────────┐
+│ TOKO RETAIL MAKMUR TRX-20260911-001 │
+│ Jl. Contoh No. 123 11/09/2026 15:12 │
+├───────────────────────────────────────┬─────────────────────────────┤
+│ │ RINGKASAN PEMBAYARAN │
+│ Tambah Barang │ │
+│ ┌───────────────────────────┐ [Cari] │ Total Item 5 │
+│ │ cari / barcode │ │ Subtotal Rp 75.000 │
+│ └───────────────────────────┘ │ Diskon (%) 0% │
+│ │ Diskon (Rp) Rp 0 │
+│ Pelanggan No Member/HP │ Pajak Rp 0 │
+│ ┌──────────────┐ ┌───────────────┐ │ Biaya Lain Rp 0 │
+│ │ Umum │ │ │ │ │
+│ └──────────────┘ └───────────────┘ │ TOTAL AKHIR │
+│ │ Rp 75.000 │
+├───────────────────────────────────────┤ │
+│ KERANJANG BELANJA │ UANG DIBAYAR │
+│ │ ┌─────────────────────────┐ │
+│ No Barang Harga Qty Subtotal │ │ Rp 100.000 │ │
+│ 1 Indomie 3.500 2 7.000 │ └─────────────────────────┘ │
+│ 2 Aqua 4.000 2 8.000 │ │
+│ 3 Beras 75.000 1 75.000 │ [Tunai][QRIS][Debit] │
+│ │ │
+│ │ KEMBALIAN │
+│ │ Rp 25.000 │
+│ │ │
+│ │ [Tahan] [Batal] │
+│ │ [ BAYAR & CETAK ] │
+└───────────────────────────────────────┴─────────────────────────────┘
+1 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Tampilan Halaman Kasir
+Fitur yang saya masukkan
+Struktur HTML awal dan header
+Pencarian barang berdasarkan nama/kode/barcode
+Daftar barang sementara
+Ringkasan pembayaran
+Qty +/-
+Hapus barang
+Subtotal
+Diskon nominal
+Diskon persen
+Pajak
+Biaya tambahan
+Total akhir
+Input uang bayar
+Perhitungan kembalian otomatis
+Status uang pembayaran: kurang/cukup
+Pilihan metode pembayaran
+Nomor transaksi
+Kasir
+Pelanggan
+Tombol Bayar & Cetak
+Tombol Tahan Transaksi
+Tombol Batal Transaksi
+Shortcut keyboard sederhana
+Tampilan responsif
+2 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+1. Struktur HTML awal dan Header
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kasir Retail POS</title>
+<link rel="stylesheet" href="{{ url(asset('css/chasier.css')) }}">
+</head>
+<body>
+<div class="pos-container">
+<!-- HEADER -->
+<header class="header">
+<div>
+<div class="store-name">TOKO RETAIL MAKMUR</div>
+<div class="store-info">
+Jl. Contoh No. 123 • Jember • Telp. 0812-xxxx-xxxx
+</div>
+</div>
+<div class="transaction-info">
+<div>No. Transaksi</div>
+<div class="transaction-number" id="transactionNumber">
+<!-- Kode otomatis sesuai tanggal -->
+TRX-20260911-001
+</div>
+<div id="currentDate"></div>
+</div>
+</header>
+</div>
+</body>
+</html>
+3 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Pada bagian link css silahkan disesuaikan dimana lokasi file css berada atau bisa download disini:
+(djuliar/minimarket)
+<link rel="stylesheet" href="{{ url(asset('css/chasier.css')) }}">
+Untuk aplikasi kasir toko retail, saya sarankan halaman pembayaran dibuat dengan konsep POS (Point of
+Sale): area kiri untuk pencarian/pemilihan barang dan daftar belanja, area kanan untuk ringkasan transaksi
+dan pembayaran.
+<!-- MAIN -->
+<main class="main">
+<!-- ================= LEFT ================= -->
+<section>
+</section>
+<!-- ================= RIGHT ================= -->
+<aside>
+</aside>
+</main>
+2. Pencarian barang berdasarkan nama/kode/barcode
+Pada bagian <section> tambahkan <card> berikut:
+4 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+<!-- SEARCH -->
+<div class="card">
+<div class="card-header">Tambah Barang</div>
+<div class="card-body">
+<div class="search-area">
+<div class="search-input">
+<input type="text" id="searchProduct" placeholder="Cari nama barang
+/ kode / barcode..." autocomplete="off">
+<div class="product-results" id="productResults"></div>
+</div>
+<button class="btn btn-primary" onclick="searchProduct()">Cari</button>
+</div>
+<!-- CUSTOMER -->
+<div class="customer-area">
+<div class="form-group">
+<label>Pelanggan</label>
+<select class="form-control">
+<option>Umum</option>
+<option>Pelanggan Member</option>
+<option>Member VIP</option>
+</select>
+</div>
+<div class="form-group">
+<label>No. Member / HP</label>
+<input type="text" class="form-control" placeholder="Opsional">
+</div>
+</div>
+</div>
+</div>
+5 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+3. Daftar barang sementara
+<!-- CART -->
+<div class="card" style="margin-top:15px">
+<div class="card-header">
+<div style="display:flex; justify-content:space-between; align-
+items:center;">
+<span>Keranjang Belanja</span>
+<span id="itemCount">0 Item</span>
+</div>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th width="40">No</th>
+<th>Barang</th>
+<th width="100">Harga</th>
+<th width="120" class="text-center">Qty</th>
+<th width="120" class="text-right">Subtotal</th>
+<th width="40"></th>
+</tr>
+</thead>
+<tbody id="cartBody">
+<tr id="emptyRow">
+<td colspan="6" class="empty-cart">
+Keranjang masih kosong.
+<br>
+Silakan cari atau scan barang.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+6 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+4. Ringkasan pembayaran
+7 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+<div class="card">
+<div class="card-header">Ringkasan Pembayaran</div>
+<div class="card-body">
+<div class="payment-summary">
+<!-- TOTAL ITEM -->
+<div class="summary-row">
+<span>Total Item</span>
+<strong id="totalQty">0</strong>
+</div>
+<!-- SUBTOTAL -->
+<div class="summary-row">
+<span>Subtotal</span>
+<strong id="subtotal">Rp 0</strong>
+</div>
+<!-- DISCOUNT -->
+<div class="summary-row">
+<span>Diskon (%)</span>
+<input type="number" id="discountPercent" value="0" min="0"
+max="100" onchange="calculateTotal()">
+</div>
+<div class="summary-row">
+<span>Diskon (Rp)</span>
+<input type="number" id="discountAmount" value="0" min="0"
+onchange="calculateTotal()">
+</div>
+<!-- TAX -->
+<div class="summary-row">
+<span>Pajak / PPN</span>
+<input type="number" id="tax" value="0" min="0"
+onchange="calculateTotal()">
+</div>
+<!-- OTHER FEE -->
+<div class="summary-row">
+<span>Biaya Lain</span>
+<input type="number" id="otherFee" value="0" min="0"
+onchange="calculateTotal()">
+</div>
+<!-- TOTAL -->
+<div class="total-box">
+<div class="total-label">TOTAL AKHIR</div>
+<div class="total-value" id="grandTotal">Rp 0</div>
+</div>
+</div>
+</div>
+</div>
+8 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Bagian pembayaran, tambahkan ini dibawah ringkasan pembayaran di dalam div card , di dalam div
+payment-summary .
+<!-- PAYMENT -->
+<div class="payment-box">
+<div class="payment-label">Uang Dibayar</div>
+<input type="number" id="payment" class="payment-input" placeholder="0"
+oninput="calculateChange()">
+<!-- PAYMENT METHOD -->
+<div class="payment-label" style="margin-top:15px">Metode Pembayaran</div>
+<div class="payment-method">
+<button class="active" onclick="selectPayment(this)">Tunai</button>
+<button onclick="selectPayment(this)">QRIS</button>
+<button onclick="selectPayment(this)">Debit</button>
+<button onclick="selectPayment(this)">Kredit</button>
+<button onclick="selectPayment(this)">E-Wallet</button>
+<button onclick="selectPayment(this)">Transfer</button>
+</div>
+<!-- CHANGE -->
+<div class="change-box" id="changeBox">
+<div class="change-label">KEMBALIAN</div>
+<div class="change-value" id="change">Rp 0</div>
+</div>
+</div>
+9 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Bagian action pembayaran, tambahkan ini dibawah pembayaran di dalam div card , di dalam div payment-
+summary .
+<!-- ACTION -->
+<div class="action-area">
+<button class="btn btn-warning" onclick="holdTransaction()">Tahan</button>
+<button class="btn btn-danger" onclick="cancelTransaction()">Batal</button>
+<button class="btn btn-success btn-pay" onclick="processPayment()">BAYAR &
+CETAK</button>
+</div>
+10 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+a. Sample Product Data
+Tambahkan berikut diantara tag <script></script> untuk menjalankan javacript.
+const products = [
+{
+id: 1,
+code: "BRG001",
+barcode: "899123456001",
+name: "Indomie Goreng",
+price: 3500
+},
+{
+id: 2,
+code: "BRG002",
+barcode: "899123456002",
+name: "Aqua 600ml",
+price: 4000
+},
+{
+id: 3,
+code: "BRG003",
+barcode: "899123456003",
+name: "Teh Botol Sosro",
+price: 5000
+},
+{
+id: 4,
+code: "BRG004",
+barcode: "899123456004",
+name: "Beras 5 Kg",
+price: 75000
+},
+{
+id: 5,
+code: "BRG005",
+barcode: "899123456005",
+name: "Minyak Goreng 1 Liter",
+price: 18000
+},
+{
+id: 6,
+code: "BRG006",
+barcode: "899123456006",
+name: "Gula Pasir 1 Kg",
+price: 17000
+}
+];
+11 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+b. Fungsi cari barang dan memasukkan ke cart
+/* ============================================
+1. SEARCH PRODUCT
+============================================ */
+const searchInput = document.getElementById("searchProduct");
+searchInput.addEventListener("input", searchProduct);
+function searchProduct() {
+const keyword = searchInput.value.toLowerCase().trim();
+const resultBox = document.getElementById("productResults");
+if (!keyword) {
+resultBox.style.display = "none";
+return;
+}
+const results = products.filter(
+(product) =>
+product.name.toLowerCase().includes(keyword) ||
+product.code.toLowerCase().includes(keyword) ||
+product.barcode.includes(keyword),
+);
+if (results.length === 0) {
+resultBox.innerHTML = `
+<div class="product-item">
+Barang tidak ditemukan
+</div>
+`;
+} else {
+resultBox.innerHTML = results
+.map(
+(product) => `
+<div class="product-item" onclick="addToCart(${product.id})">
+<div>
+<div class="product-name">${product.name}</div>
+<div class="product-code">${product.code} -
+${product.barcode}</div>
+</div>
+<div class="product-price">${formatRupiah(product.price)}</div>
+</div>
+`,
+).join("");
+}
+resultBox.style.display = "block";
+}
+12 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+/* ============================================
+2. FORMAT RUPIAH
+============================================ */
+function formatRupiah(value) {
+return new Intl.NumberFormat(
+"id-ID",
+{
+style: "currency",
+currency: "IDR",
+maximumFractionDigits: 0
+}
+).format(value);
+}
+/* ============================================
+CART
+============================================ */
+let cart = [];
+/* ============================================
+ADD CART
+============================================ */
+function addToCart(productId) {
+const product = products.find((p) => p.id === productId);
+const existing = cart.find((item) => item.id === productId);
+if (existing) {
+existing.qty++;
+} else {
+cart.push({
+...product,
+qty: 1,
+});
+}
+searchInput.value = "";
+document.getElementById("productResults").style.display = "none";
+renderCart();
+}
+/* ============================================
+RENDER CART
+============================================ */
+13 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+function renderCart() {
+const body = document.getElementById("cartBody");
+if (cart.length === 0) {
+body.innerHTML = `
+<tr>
+<td colspan="6" class="empty-cart">
+Keranjang masih kosong.
+<br>
+Silakan cari atau scan barang.
+</td>
+</tr>
+`;
+calculateTotal();
+return;
+}
+body.innerHTML = cart.map(
+(item, index) => `
+<tr>
+<td>${index + 1}</td>
+<td>
+<strong>${item.name}</strong>
+<div style="font-size:11px; color:#6c757d">
+${item.code}
+</div>
+</td>
+<td>${formatRupiah(item.price)}</td>
+<td>
+<div class="qty-control">
+<button onclick="changeQty(${item.id}, -1)">−</button>
+<input type="number" value="${item.qty}" min="1"
+onchange="updateQty(${item.id}, this.value)">
+<button onclick="changeQty(${item.id}, 1)">+</button>
+</div>
+</td>
+<td class="text-right">
+<strong>${formatRupiah(item.price * item.qty)}</strong>
+</td>
+<td class="text-center">
+<button class="remove-btn"
+onclick="removeItem(${item.id})">×</button>
+</td>
+</tr>
+`,
+).join("");
+calculateTotal();
+}
+14 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+/* ============================================
+CHANGE QTY
+============================================ */
+function changeQty(id, amount) {
+const item = cart.find((item) => item.id === id);
+if (!item) return;
+item.qty += amount;
+if (item.qty <= 0) {
+removeItem(id);
+return;
+}
+renderCart();
+}
+/* ============================================
+UPDATE QTY
+============================================ */
+function updateQty(id, qty) {
+const item = cart.find((item) => item.id === id);
+if (!item) return;
+item.qty = Math.max(1, parseInt(qty) || 1);
+renderCart();
+}
+/* ============================================
+REMOVE ITEM
+============================================ */
+function removeItem(id) {
+cart = cart.filter((item) => item.id !== id);
+renderCart();
+}
+Proses perhitungan
+/* ============================================
+CALCULATE TOTAL
+============================================ */
+15 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+function calculateTotal() {
+let totalQty = 0;
+let subtotal = 0;
+cart.forEach((item) => {
+totalQty += item.qty;
+subtotal += item.price * item.qty;
+});
+const discountPercent =
+parseFloat(document.getElementById("discountPercent").value) || 0;
+const manualDiscount =
+parseFloat(document.getElementById("discountAmount").value) || 0;
+const tax = parseFloat(document.getElementById("tax").value) || 0;
+const otherFee = parseFloat(document.getElementById("otherFee").value) || 0;
+const percentDiscount = subtotal * (discountPercent / 100);
+const totalDiscount = percentDiscount + manualDiscount;
+const grandTotal = Math.max(0, subtotal - totalDiscount + tax + otherFee);
+document.getElementById("totalQty").innerText = totalQty;
+document.getElementById("itemCount").innerText = totalQty + " Item";
+document.getElementById("subtotal").innerText = formatRupiah(subtotal);
+document.getElementById("grandTotal").innerText = formatRupiah(grandTotal);
+calculateChange();
+}
+/* ============================================
+CALCULATE CHANGE
+============================================ */
+function calculateChange() {
+const grandTotal = getGrandTotal();
+const payment = parseFloat(document.getElementById("payment").value) || 0;
+const change = payment - grandTotal;
+const changeBox = document.getElementById("changeBox");
+const changeElement = document.getElementById("change");
+if (change >= 0) {
+changeBox.classList.remove("short-payment");
+changeElement.innerText = formatRupiah(change);
+document.querySelector(".change-label").innerText = "KEMBALIAN";
+} else {
+changeBox.classList.add("short-payment");
+changeElement.innerText = formatRupiah(Math.abs(change));
+document.querySelector(".change-label").innerText = "UANG KURANG";
+}
+}
+16 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+/* ============================================
+GET GRAND TOTAL
+============================================ */
+function getGrandTotal() {
+let subtotal = 0;
+cart.forEach((item) => {
+subtotal += item.price * item.qty;
+});
+const discountPercent =
+parseFloat(document.getElementById("discountPercent").value) || 0;
+const discountAmount =
+parseFloat(document.getElementById("discountAmount").value) || 0;
+const tax = parseFloat(document.getElementById("tax").value) || 0;
+const otherFee = parseFloat(document.getElementById("otherFee").value) || 0;
+const discount = (subtotal * discountPercent) / 100 + discountAmount;
+return Math.max(0, subtotal - discount + tax + otherFee);
+}
+Fungsi untuk Payment Method
+/* ============================================
+PAYMENT METHOD
+============================================ */
+function selectPayment(button) {
+document.querySelectorAll(".payment-method button").forEach((btn) => {
+btn.classList.remove("active");
+});
+button.classList.add("active");
+}
+/* ============================================
+HOLD TRANSACTION
+============================================ */
+function holdTransaction() {
+if (cart.length === 0) {
+alert("Tidak ada transaksi untuk ditahan.");
+return;
+}
+alert("Transaksi berhasil ditahan.");
+}
+17 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+/* ============================================
+PAYMENT
+============================================ */
+function processPayment() {
+if (cart.length === 0) {
+alert("Keranjang masih kosong.");
+return;
+}
+const total = getGrandTotal();
+const payment = parseFloat(document.getElementById("payment").value) || 0;
+if (payment < total) {
+alert("Uang pembayaran masih kurang.");
+return;
+}
+const change = payment - total;
+alert(
+"Pembayaran berhasil!\n\n" +
+"Total : " + formatRupiah(total) + "\n" +
+"Bayar : " + formatRupiah(payment) + "\n" +
+"Kembali : " + formatRupiah(change),
+);
+// Nantinya dapat diganti:
+// window.location.href =
+// "/transaksi/" + transactionId + "/print";
+}
+/* ============================================
+CANCEL TRANSACTION
+============================================ */
+function cancelTransaction() {
+if (!confirm("Batalkan transaksi ini?")) {
+return;
+}
+cart = [];
+document.getElementById("payment").value = "";
+document.getElementById("discountPercent").value = 0;
+document.getElementById("discountAmount").value = 0;
+renderCart();
+}
+18 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+/* ============================================
+DATE
+============================================ */
+document.getElementById("currentDate").innerText = new Date().toLocaleString(
+"id-ID",
+);
+/* ============================================
+KEYBOARD SHORTCUT
+============================================ */
+document.addEventListener("keydown", function (event) {
+// F2 = fokus pencarian
+if (event.key === "F2") {
+event.preventDefault();
+searchInput.focus();
+}
+// F4 = fokus pembayaran
+if (event.key === "F4") {
+event.preventDefault();
+document.getElementById("payment").focus();
+}
+// ESC = batal
+if (event.key === "Escape") {
+cancelTransaction();
+}
+});
+/* ============================================
+INITIAL
+============================================ */
+renderCart();
+Semua file javascript bisa dikelompokkan menjadi satu file di chasier.js , dan dipanggil seperti ini:
+<script src="{{ url(asset('js/chasier.js')) }}"></script>
+file javascript atau bisa di download di: (djuliar/minimarket)
+19 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Saran untuk versi aplikasi Laravel 13
+1. Tambahkan barcode scanner
+Input pencarian sebaiknya juga berfungsi sebagai input barcode.
+Alurnya:
+Scanner Barcode
+↓
+Input Barcode
+↓
+Cari Produk
+↓
+Produk ditemukan
+↓
+Jika sudah ada → Qty + 1
+Jika belum ada → Tambahkan ke keranjang
+Dengan demikian kasir tidak perlu menggunakan mouse untuk setiap barang.
+2. Pisahkan transaksi dan detail transaksi
+Struktur database Laravel yang saya sarankan:
+transactions
+────────────────────────
+id
+transaction_number
+user_id
+customer_id
+subtotal
+discount
+tax
+other_fee
+grand_total
+paid_amount
+change_amount
+payment_method
+status
+created_at
+20 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+transaction_details
+────────────────────────
+id
+transaction_id
+product_id
+product_code
+product_name
+price
+qty
+discount
+subtotal
+created_at
+Ini akan memudahkan pembuatan:
+laporan penjualan
+cetak struk
+laporan per kasir
+laporan per periode
+laporan produk terlaris
+laporan laba
+retur barang
+audit transaksi.
+3. Jangan hanya menyimpan total
+Pada aplikasi retail, sebaiknya detail transaksi disimpan lengkap, bukan hanya:
+total = Rp100.000
+Tetapi:
+Transaksi #TRX001
+Indomie 2 x 3.500 = 7.000
+Aqua 2 x 4.000 = 8.000
+Beras 1 x 75.000 = 75.000
+────────────────────────────────
+Subtotal 90.000
+Diskon 5.000
+PPN 0
+────────────────────────────────
+TOTAL 85.000
+Bayar 100.000
+Kembali 15.000
+21 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+4. Tambahkan fitur "Parkir/Tahan Transaksi"
+Ini sangat berguna untuk kasir retail.
+Misalnya:
+Pelanggan A
+↓
+Scan 10 barang
+↓
+Belum bayar
+↓
+Tahan transaksi
+↓
+Pelanggan B
+↓
+Layani pelanggan B
+↓
+Selesai
+↓
+Kembali ke transaksi A
+Bisa dibuat tombol:
+Tahan Transaksi
+dan halaman:
+Transaksi Ditahan
+TRX-001 5 Item Rp 125.000 [Lanjutkan]
+TRX-002 8 Item Rp 340.000 [Lanjutkan]
+TRX-003 2 Item Rp 25.000 [Lanjutkan]
+5. Tambahkan "Nominal Cepat"
+Untuk kasir toko, ini sangat praktis.
+Misalnya total:
+Rp 37.500
+22 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+Tampilkan tombol:
+[ Rp 40.000 ]
+[ Rp 50.000 ]
+[ Rp 100.000 ]
+[ Uang Pas ]
+Kasir cukup klik:
+Rp 50.000
+Bayar Rp 50.000
+Total Rp 37.500
+-------------------
+Kembali Rp 12.500
+6. Cetak struk
+Setelah:
+BAYAR & CETAK
+alur Laravel dapat dibuat:
+POST /kasir/transaksi
+↓
+Simpan transaksi
+↓
+Simpan detail transaksi
+↓
+Kurangi stok
+↓
+Simpan pembayaran
+↓
+Generate nomor transaksi
+↓
+Redirect ke halaman struk
+↓
+window.print()
+Struk dapat dibuat untuk:
+printer thermal 58 mm
+printer thermal 80 mm
+PDF
+printer biasa.
+23 / 24
+# PROSEDUR KERJA PRAKTIKUM KE-3 - MEMBUAT HALAMAN TRANSAKSI PEMBAYARAN KASIR.md 2026-09-22
+7. Fitur yang saya rekomendasikan untuk tahap berikutnya
+Untuk Aplikasi Minimarket Laravel 13, modul kasir akhirnya bisa memiliki:
+KASIR
+│
+├── Transaksi Baru
+│ ├── Scan Barcode
+│ ├── Cari Produk
+│ ├── Keranjang
+│ ├── Diskon
+│ ├── Pajak
+│ ├── Pembayaran
+│ └── Cetak Struk
+│
+├── Transaksi Ditahan
+│
+├── Riwayat Transaksi
+│
+├── Retur Penjualan
+│
+├── Pembatalan Transaksi
+│
+└── Tutup Kasir
+├── Saldo Awal
+├── Penjualan Tunai
+├── QRIS
+├── Debit
+├── E-Wallet
+└── Saldo Akhir
+24 / 24
